@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${board.name} + ' - TrelloClone'">Доска</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .column {
+            min-width: 272px;
+            max-width: 272px;
+        }
+        .card-hover:hover {
+            background-color: #f9fafb;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            height: 8px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+<!-- Header -->
+<nav class="bg-blue-600 text-white p-4 shadow-lg">
+    <div class="container mx-auto flex justify-between items-center">
+        <div class="flex items-center gap-4">
+            <a th:href="@{/{publicId}/boards(publicId=${publicId})}"
+               class="hover:text-blue-200 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                Назад
+            </a>
+            <h1 class="text-2xl font-bold" th:text="${board.name}">Название доски</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <span th:text="${user.getUsername()}">Имя</span>
+            <form th:action="@{/logout}" method="post">
+                <button type="submit" class="bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded">
+                    Выйти
+                </button>
+            </form>
+        </div>
+    </div>
+</nav>
+
+<!-- Board Info -->
+<div class="bg-white border-b px-6 py-3">
+    <p class="text-gray-600 text-sm" th:text="${board.description} ?: 'Без описания'">
+        Описание доски
+    </p>
+</div>
+
+<!-- Columns Container -->
+<div class="flex gap-4 p-6 overflow-x-auto scrollbar-thin" style="min-height: calc(100vh - 160px);">
+
+    <!-- Существующие колонки -->
+    <div th:each="column : ${board.columns}"
+         class="column bg-gray-200 rounded-lg p-3 flex flex-col">
+
+        <!-- Заголовок колонки -->
+        <div class="flex justify-between items-center mb-3 px-1">
+            <h3 class="font-semibold text-gray-800" th:text="${column.name}">Название колонки</h3>
+            <form th:action="@{/{publicId}/columns/{columnId}/delete(publicId=${publicId}, columnId=${column.id})}"
+                  method="post"
+                  onsubmit="return confirm('Удалить колонку и все её карточки?');">
+                <button type="submit" class="text-gray-500 hover:text-red-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
+
+        <!-- ✅ Карточки в колонке (теперь div с data-атрибутами) -->
+        <div class="flex-1 space-y-2 overflow-y-auto max-h-[calc(100vh-300px)]">
+            <div th:each="card : ${column.cards}"
+                 th:data-card-id="${card.id}"
+                 th:data-card-title="${card.title}"
+                 th:data-card-description="${card.description}"
+                 th:data-column-name="${column.name}"
+                 th:data-created-at="${card.createdAt}"
+                 onclick="openViewCardModal(this)"
+                 class="block bg-white rounded-md shadow-sm p-3 card-hover cursor-pointer hover:shadow-md transition-shadow">
+                <h4 class="text-sm font-medium text-gray-800 mb-1" th:text="${card.title}">
+                    Заголовок карточки
+                </h4>
+                <div class="flex items-center gap-2 text-xs text-gray-500">
+                    <span class="flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                        </svg>
+                        <span th:text="${#lists.size(card.comments)}">0</span>
+                    </span>
+                </div>
+
+                <!-- Скрытый блок с комментариями (скопируется в модалку) -->
+                <div class="hidden card-comments-data">
+                    <div th:if="${#lists.isEmpty(card.comments)}" class="text-center py-4 text-gray-400 text-sm">
+                        Пока нет комментариев
+                    </div>
+                    <div th:each="comment : ${card.comments}"
+                         class="bg-gray-50 rounded-lg p-3 mb-2 border-l-4 border-blue-500">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="font-semibold text-gray-800 text-sm" th:text="${comment.user.name}">Автор</span>
+                            <span class="text-xs text-gray-500"
+                                  th:text="${#temporals.format(comment.createdAt, 'dd.MM.yyyy HH:mm')}">Дата</span>
+                        </div>
+                        <p class="text-sm text-gray-700 whitespace-pre-wrap" th:text="${comment.content}">Текст</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Кнопка добавления карточки -->
+        <button th:onclick="|openAddCardModal(${column.id})|"
+                class="mt-2 w-full text-left text-gray-600 hover:bg-gray-300 px-2 py-2 rounded text-sm flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Добавить карточку
+        </button>
+    </div>
+
+    <!-- Кнопка добавления колонки -->
+    <div class="column">
+        <button onclick="openAddColumnModal()"
+                class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Добавить колонку
+        </button>
+    </div>
+</div>
+
+<!-- Модальное окно: Добавить колонку -->
+<div id="addColumnModal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Добавить колонку</h3>
+
+        <form th:action="@{/{publicId}/boards/{boardId}/columns(publicId=${publicId}, boardId=${board.id})}"
+              method="post"
+              id="addColumnForm">
+
+            <div class="mb-4">
+                <label for="columnName" class="block text-sm font-medium text-gray-700 mb-2">
+                    Название колонки *
+                </label>
+                <input type="text"
+                       id="columnName"
+                       name="name"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="Например: To Do, In Progress, Done"
+                       required
+                       autofocus>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="button"
+                        onclick="closeAddColumnModal()"
+                        class="flex-1 px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
+                    Отмена
+                </button>
+                <button type="submit"
+                        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
+                    Добавить
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Модальное окно: Добавить карточку -->
+<div id="addCardModal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Добавить карточку</h3>
+
+        <form th:action="@{/{publicId}/columns/{columnId}/cards(publicId=${publicId}, columnId='PLACEHOLDER')}"
+              method="post"
+              id="addCardForm">
+
+            <div class="mb-4">
+                <label for="cardTitle" class="block text-sm font-medium text-gray-700 mb-2">
+                    Заголовок карточки *
+                </label>
+                <input type="text"
+                       id="cardTitle"
+                       name="title"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="Что нужно сделать?"
+                       required
+                       autofocus>
+            </div>
+
+            <div class="mb-4">
+                <label for="cardDescription" class="block text-sm font-medium text-gray-700 mb-2">
+                    Описание (необязательно)
+                </label>
+                <textarea id="cardDescription"
+                          name="description"
+                          rows="3"
+                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Детали задачи"></textarea>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="button"
+                        onclick="closeAddCardModal()"
+                        class="flex-1 px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
+                    Отмена
+                </button>
+                <button type="submit"
+                        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
+                    Добавить
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ✅ НОВОЕ: Модальное окно просмотра карточки -->
+<div id="viewCardModal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <!-- Заголовок модалки -->
+        <div class="flex justify-between items-start p-6 border-b">
+            <div class="flex-1">
+                <div class="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                    <span>в колонке</span>
+                    <span id="viewColumnName" class="font-semibold text-blue-600">Колонка</span>
+                </div>
+                <h2 id="viewCardTitle" class="text-2xl font-bold text-gray-800">Заголовок карточки</h2>
+                <p class="text-xs text-gray-400 mt-1">
+                    Создано: <span id="viewCreatedAt">дата</span>
+                </p>
+            </div>
+            <button onclick="closeViewCardModal()"
+                    class="text-gray-400 hover:text-gray-600 ml-4 p-1">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Описание -->
+        <div class="p-6 border-b">
+            <h3 class="text-sm font-semibold text-gray-700 mb-2 uppercase">Описание</h3>
+            <p id="viewCardDescription" class="text-gray-700 whitespace-pre-wrap">
+                Описание карточки
+            </p>
+        </div>
+
+        <!-- Комментарии -->
+        <div class="p-6">
+            <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase">
+                Комментарии (<span id="viewCommentsCount">0</span>)
+            </h3>
+
+            <!-- Список комментариев -->
+            <div id="viewCardComments" class="space-y-2">
+                <!-- Комментарии будут вставлены сюда через JS -->
+            </div>
+
+            <!-- Форма добавления комментария (пока заглушка) -->
+            <div class="mt-4 pt-4 border-t">
+                <textarea id="newCommentText"
+                          rows="2"
+                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          placeholder="Добавить комментарий..."
+                          disabled></textarea>
+                <button type="button"
+                        disabled
+                        class="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm opacity-50 cursor-not-allowed">
+                    Отправить (скоро)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const publicId = [[${publicId}]];
+    const boardId = [[${board.id}]];
+
+    // ===== Колонки =====
+    function openAddColumnModal() {
+        document.getElementById('addColumnModal').classList.remove('hidden');
+        document.getElementById('addColumnModal').classList.add('flex');
+        document.getElementById('columnName').focus();
+    }
+
+    function closeAddColumnModal() {
+        document.getElementById('addColumnModal').classList.add('hidden');
+        document.getElementById('addColumnModal').classList.remove('flex');
+        document.getElementById('addColumnForm').reset();
+    }
+
+    // ===== Создание карточки =====
+    function openAddCardModal(columnId) {
+        const form = document.getElementById('addCardForm');
+        form.action = `/${publicId}/columns/${columnId}/cards`;
+
+        document.getElementById('addCardModal').classList.remove('hidden');
+        document.getElementById('addCardModal').classList.add('flex');
+        document.getElementById('cardTitle').focus();
+    }
+
+    function closeAddCardModal() {
+        document.getElementById('addCardModal').classList.add('hidden');
+        document.getElementById('addCardModal').classList.remove('flex');
+        document.getElementById('addCardForm').reset();
+    }
+
+    // ===== ✅ Просмотр карточки =====
+    function openViewCardModal(cardElement) {
+        // Читаем данные из data-атрибутов
+        const title = cardElement.dataset.cardTitle;
+        const description = cardElement.dataset.cardDescription;
+        const columnName = cardElement.dataset.columnName;
+        const createdAt = cardElement.dataset.createdAt;
+
+        // Копируем HTML комментариев из скрытого блока
+        const commentsHtml = cardElement.querySelector('.card-comments-data').innerHTML;
+
+        // Заполняем модалку
+        document.getElementById('viewCardTitle').textContent = title;
+        document.getElementById('viewCardDescription').textContent = description || 'Нет описания';
+        document.getElementById('viewColumnName').textContent = columnName;
+        document.getElementById('viewCreatedAt').textContent = createdAt;
+        document.getElementById('viewCardComments').innerHTML = commentsHtml;
+
+        // Считаем количество комментариев
+        const commentsCount = cardElement.querySelector('.card-comments-data').children.length;
+        const hasNoComments = cardElement.querySelector('.card-comments-data .text-center') !== null;
+        document.getElementById('viewCommentsCount').textContent = hasNoComments ? 0 : commentsCount;
+
+        // Показываем модалку
+        document.getElementById('viewCardModal').classList.remove('hidden');
+        document.getElementById('viewCardModal').classList.add('flex');
+    }
+
+    function closeViewCardModal() {
+        document.getElementById('viewCardModal').classList.add('hidden');
+        document.getElementById('viewCardModal').classList.remove('flex');
+    }
+
+    // ===== Закрытие модалок =====
+    document.getElementById('addColumnModal').addEventListener('click', function(e) {
+        if (e.target === this) closeAddColumnModal();
+    });
+
+    document.getElementById('addCardModal').addEventListener('click', function(e) {
+        if (e.target === this) closeAddCardModal();
+    });
+
+    document.getElementById('viewCardModal').addEventListener('click', function(e) {
+        if (e.target === this) closeViewCardModal();
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeAddColumnModal();
+            closeAddCardModal();
+            closeViewCardModal();
+        }
+    });
+</script>
+</body>
+</html>

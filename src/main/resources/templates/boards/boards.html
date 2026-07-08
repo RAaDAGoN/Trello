@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Мои доски</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+<!-- Header -->
+<nav class="bg-blue-600 text-white p-4 shadow-lg">
+    <div class="container mx-auto flex justify-between items-center">
+        <h1 class="text-2xl font-bold">TrelloClone</h1>
+        <div class="flex items-center gap-4">
+            <span th:text="${user.getUsername()}">Имя</span>
+            <form th:action="@{/logout}" method="post">
+                <button type="submit" class="bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded">
+                    Выйти
+                </button>
+            </form>
+        </div>
+    </div>
+</nav>
+
+<!-- Main content -->
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-8">
+        <h2 class="text-3xl font-bold text-gray-800">Мои доски</h2>
+        <button id="openModalBtn"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg shadow flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Создать доску
+        </button>
+    </div>
+
+    <!-- Список досок -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <a th:each="board : ${boards}"
+           th:href="@{/{publicId}/{slug}(publicId=${publicId}, slug=${board.slug})}"
+           class="block bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer text-inherit no-underline">
+            <h3 class="text-xl font-semibold text-gray-800 mb-2" th:text="${board.name}">
+                Название доски
+            </h3>
+            <p class="text-gray-600 mb-4" th:text="${board.description} ?: 'Без описания'">
+                Описание
+            </p>
+            <div class="flex justify-between items-center text-sm text-gray-500">
+<!--                <span th:text="${#lists.size(board.columns)} + ' колонок'">0 колонок</span>-->
+<!--                <span th:text="${#temporals.format(board.createdAt, 'dd.MM.yyyy')}">01.01.2026</span>-->
+            </div>
+        </a>
+    </div>
+
+    <!-- Пустое состояние -->
+    <div th:if="${#lists.isEmpty(boards)}" class="text-center py-16">
+        <svg class="mx-auto h-24 w-24 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <h3 class="mt-4 text-lg font-medium text-gray-900">У вас пока нет досок</h3>
+        <p class="mt-2 text-gray-500">Создайте первую доску, чтобы начать</p>
+        <button id="openModalBtnEmpty"
+                class="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg">
+            Создать доску
+        </button>
+    </div>
+</div>
+
+<!-- Модальное окно -->
+<div id="createBoardModal"
+     th:classappend="${showModal} ? 'flex' : 'hidden'"
+     class="fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
+        <h3 class="text-2xl font-bold text-gray-800 mb-6">Создать новую доску</h3>
+
+        <form th:action="@{/{publicId}/boards(publicId=${publicId})}"
+              th:object="${boardDto}"
+              method="post"
+              id="createBoardForm">
+
+            <div class="mb-4">
+                <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+                    Название доски *
+                </label>
+                <input type="text"
+                       id="name"
+                       th:field="*{name}"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       th:classappend="${#fields.hasErrors('name')} ? 'border-red-500' : ''"
+                       placeholder="Например: Мои проекты"
+                       required
+                       autofocus>
+                <p th:if="${#fields.hasErrors('name')}"
+                   th:errors="*{name}"
+                   class="mt-1 text-sm text-red-600"></p>
+            </div>
+
+            <div class="mb-6">
+                <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+                    Описание (необязательно)
+                </label>
+                <textarea id="description"
+                          th:field="*{description}"
+                          rows="3"
+                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Краткое описание доски"></textarea>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="button" id="cancelBtn"
+                        class="flex-1 px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
+                    Отмена
+                </button>
+                <button type="submit"
+                        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg">
+                    Создать
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    // Получаем элементы
+    const modal = document.getElementById('createBoardModal');
+    const openBtn = document.getElementById('openModalBtn');
+    const openBtnEmpty = document.getElementById('openModalBtnEmpty');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const form = document.getElementById('createBoardForm');
+
+    // Флаг из Thymeleaf — нужно ли открыть модалку автоматически (при ошибках валидации)
+    const shouldOpenModal = [[${showModal}]] || false;
+
+    function openModal() {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => document.getElementById('name').focus(), 100);
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        if (form) form.reset();
+    }
+
+    // Назначаем обработчики
+    if (openBtn) openBtn.addEventListener('click', openModal);
+    if (openBtnEmpty) openBtnEmpty.addEventListener('click', openModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+    // Закрытие по клику на фон
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) closeModal();
+        });
+    }
+
+    // Закрытие по Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+
+    // Автоматическое открытие при ошибках валидации
+    if (shouldOpenModal) {
+        openModal();
+    }
+</script>
+</body>
+</html>
