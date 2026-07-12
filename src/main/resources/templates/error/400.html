@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{error/general :: head('Некорректный запрос')}"></head>
+<body>
+<div th:replace="~{error/general :: error-content(
+        code='400',
+        title='Некорректный запрос',
+        message='Сервер не смог обработать ваш запрос. Возможно, данные формы содержат ошибки или запрос имеет неверный формат.',
+        emoji='⚠️',
+        actionUrl='javascript:history.back()',
+        actionText='Вернуться и исправить'
+    )}"></div>
+</body>
+</html>

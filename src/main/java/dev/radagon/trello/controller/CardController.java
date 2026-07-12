@@ -1,6 +1,7 @@
 package dev.radagon.trello.controller;
 
 import dev.radagon.trello.dto.CardDTO;
+import dev.radagon.trello.entity.Board;
 import dev.radagon.trello.entity.BoardColumn;
 import dev.radagon.trello.entity.Card;
 import dev.radagon.trello.entity.User;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.server.ResponseStatusException;
 
 
 @Controller
@@ -43,6 +45,24 @@ public class CardController {
             return "redirect:/" + publicId + "/" + column.getBoard().getSlug();
         } catch (AccessDeniedException e) {
             throw new AccessDeniedException(HttpStatus.FORBIDDEN.toString());
+        }
+    }
+
+    @PostMapping("/cards/{cardId}/toggle")
+    public String toggleCardCompleted(
+            @PathVariable String publicId,
+            @PathVariable Long cardId,
+            Authentication auth) {
+
+        String email = auth.getName();
+        User currentUser = boardService.getUserByEmail(email);
+
+        try {
+            Card card = cardService.toggleCardCompleted(cardId, currentUser.getId());
+            Board board = card.getColumn().getBoard();
+            return "redirect:/" + publicId + "/" + board.getSlug();
+        } catch (AccessDeniedException e) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Нет прав");
         }
     }
 }

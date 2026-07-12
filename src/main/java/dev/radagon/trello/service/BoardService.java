@@ -9,13 +9,15 @@ import dev.radagon.trello.utils.SlugGenerator;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class BoardService {
     private final BoardRepository boardRepository;
     private final UserRepository userRepository;
@@ -37,14 +39,21 @@ public class BoardService {
     }
 
     public Board getBoardBySlug(String slug, Long userId) {
-        return boardRepository.findBySlugAndUser_Id(slug, userId);
+        Board board = boardRepository.findBySlugAndUser_Id(slug, userId)
+                .orElseThrow(() -> new AccessDeniedException("Access denied"));
+
+        if (!board.getUser().getId().equals(userId)) {
+            throw new AccessDeniedException("Access denied");
+        }
+
+        return board;
     }
 
     /*
     Возвращает список досок конкретного пользователя
      */
-    public List<Board> getBoardByOwner(Long id) {
-        return boardRepository.findByUser_id(id);
+    public List<Board> getBoardByOwner(Long userId) {
+        return boardRepository.findByUser_Id(userId);
     }
 
     public User getOwnerByPublicId(String publicId) {

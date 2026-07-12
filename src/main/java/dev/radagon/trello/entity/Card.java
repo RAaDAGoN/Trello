@@ -37,6 +37,10 @@ public class Card {
     @Column(nullable = false)
     private String createdAt;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean completed = false;
+
     @OneToMany(mappedBy = "cardId", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("createdAt ASC")
     @Builder.Default

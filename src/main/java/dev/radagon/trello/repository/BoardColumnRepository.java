@@ -3,6 +3,7 @@ package dev.radagon.trello.repository;
 import dev.radagon.trello.entity.Board;
 import dev.radagon.trello.entity.BoardColumn;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -28,4 +29,12 @@ public interface BoardColumnRepository extends JpaRepository<BoardColumn,Long> {
         where c.id = :columnId
     """)
     Optional<BoardColumn> findByIdWithBoardAndUser(@Param("columnId") Long columnID);
+
+    @Modifying
+    @Query("""
+        UPDATE BoardColumn c
+        SET c.position = c.position - 1
+        WHERE c.board.id = :boardId AND c.position > :deletedPosition
+    """)
+    void decrementPositionsAfter(@Param("boardId") Long boardId, @Param("deletedPosition") int deletedPosition);
 }

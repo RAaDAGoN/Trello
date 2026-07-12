@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{error/general :: head('Страница не найдена')}"></head>
+<body>
+<div th:replace="~{error/general :: error-content(
+        code='404',
+        title='Страница не найдена',
+        message='Запрашиваемая страница не существует, была удалена или перемещена. Проверьте правильность адреса или вернитесь на главную.',
+        emoji='🔍',
+        actionUrl='/boards',
+        actionText='Мои доски'
+    )}"></div>
+</body>
+</html>

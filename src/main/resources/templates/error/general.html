@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<!-- Фрагмент: шапка страницы -->
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title} + ' - TrelloClone'">Ошибка</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        .float-animation {
+            animation: float 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- Фрагмент: основной контейнер ошибки -->
+<div th:fragment="error-content(code, title, message, emoji, actionUrl, actionText)"
+     class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+    <div class="max-w-lg w-full text-center">
+
+        <!-- Emoji с анимацией -->
+        <div class="float-animation text-9xl mb-6" th:text="${emoji}">🚫</div>
+
+        <!-- Код ошибки -->
+        <div class="text-7xl font-bold text-gray-800 mb-2" th:text="${code}">404</div>
+
+        <!-- Заголовок -->
+        <h1 class="text-2xl font-semibold text-gray-700 mb-4" th:text="${title}">
+            Страница не найдена
+        </h1>
+
+        <!-- Описание -->
+        <p class="text-gray-600 mb-8 leading-relaxed" th:text="${message}">
+            К сожалению, запрашиваемая страница не существует.
+        </p>
+
+        <!-- Кнопки действий -->
+        <div class="flex flex-col sm:flex-row gap-3 justify-center">
+            <a href="javascript:history.back()"
+               class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                ← Назад
+            </a>
+            <a th:href="${actionUrl}"
+               class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md"
+               th:text="${actionText}">
+                На главную
+            </a>
+        </div>
+
+        <!-- Футер -->
+        <div class="mt-12 text-sm text-gray-400">
+            <p>TrelloClone © 2026</p>
+            <p class="mt-1">
+                Если проблема повторяется —
+                <a href="mailto:support@trelloclone.local" class="text-blue-500 hover:underline">
+                    свяжитесь с нами
+                </a>
+            </p>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

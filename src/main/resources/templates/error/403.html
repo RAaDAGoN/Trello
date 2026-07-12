@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{error/general :: head('Доступ запрещён')}"></head>
+<body>
+<div th:replace="~{error/general :: error-content(
+        code='403',
+        title='Доступ запрещён',
+        message='У вас нет прав для просмотра этой страницы. Возможно, вы пытаетесь получить доступ к чужой доске или карточке.',
+        emoji='🔒',
+        actionUrl='/boards',
+        actionText='К моим доскам'
+    )}"></div>
+</body>
+</html>

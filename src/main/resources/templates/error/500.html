@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{error/general :: head('Внутренняя ошибка сервера')}"></head>
+<body>
+<div th:replace="~{error/general :: error-content(
+        code='500',
+        title='Что-то пошло не так',
+        message='На сервере произошла непредвиденная ошибка. Наши разработчики уже notified. Пожалуйста, попробуйте позже.',
+        emoji='🔧',
+        actionUrl='/boards',
+        actionText='Попробовать снова'
+    )}"></div>
+</body>
+</html>

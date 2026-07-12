@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{error/general :: head('Требуется авторизация')}"></head>
+<body>
+<div th:replace="~{error/general :: error-content(
+        code='401',
+        title='Требуется авторизация',
+        message='Для доступа к этой странице необходимо войти в систему. Пожалуйста, авторизуйтесь или зарегистрируйтесь.',
+        emoji='👤',
+        actionUrl='/login',
+        actionText='Войти'
+    )}"></div>
+</body>
+</html>

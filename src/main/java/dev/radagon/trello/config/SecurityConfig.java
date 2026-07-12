@@ -23,9 +23,16 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login").permitAll()
+                        .requestMatchers("/login", "/error/**", "/h2-console/**").permitAll()
                         .requestMatchers("/board/**").hasRole("USER")
                         .anyRequest().authenticated()
+                )
+                .exceptionHandling(ex -> ex
+                        .accessDeniedPage("/error/403")
+                        .authenticationEntryPoint((req, resp, e) -> {
+                            resp.sendRedirect("/error/401");
+                        })
+
                 )
                 .formLogin(form -> form
                         .loginPage("/login")
@@ -42,6 +49,14 @@ public class SecurityConfig {
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/login?logout")
                         .permitAll()
+                )
+
+                .csrf(csrf -> csrf
+                        .ignoringRequestMatchers("/h2-console/**")
+                )
+
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.sameOrigin())
                 );
         return http.build();
     }

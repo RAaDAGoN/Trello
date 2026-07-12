@@ -7,6 +7,7 @@ import dev.radagon.trello.entity.User;
 import dev.radagon.trello.repository.BoardColumnRepository;
 import dev.radagon.trello.repository.CardRepository;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,21 @@ public class CardService {
                 .position(maxPosition + 1)
                 .build();
 
+        return cardRepository.save(card);
+    }
+
+    @Transactional
+    public Card toggleCardCompleted(Long cardId, Long userId) {
+        Card card = cardRepository.findByIdWithFullHierarchy(cardId)
+                .orElseThrow(() -> new EntityNotFoundException("Карточка не найдена"));
+
+        // Проверка прав
+        if (!card.getColumn().getBoard().getUser().getId().equals(userId)) {
+            throw new AccessDeniedException("Нет прав на эту карточку");
+        }
+
+        // ✅ Переключаем флаг
+        card.setCompleted(!card.getCompleted());
         return cardRepository.save(card);
     }
 }
