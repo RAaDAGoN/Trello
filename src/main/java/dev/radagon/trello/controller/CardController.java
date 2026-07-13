@@ -48,13 +48,49 @@ public class CardController {
         }
     }
 
+    @PostMapping("/cards/{cardId}/update")
+    public String updateCard(
+            @PathVariable String publicId,
+            @PathVariable Long cardId,
+            @ModelAttribute CardDTO dto,
+            Authentication authentication) {
+        String email = authentication.getName();
+        User currentUser = boardService.getUserByEmail(email);
+
+        try {
+            Card card = cardService.update(dto, cardId, currentUser.getId());
+            BoardColumn column = card.getColumn();
+            return "redirect:/" + publicId + "/" + column.getBoard().getSlug();
+        } catch (AccessDeniedException e) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+    }
+
+    @PostMapping("/cards/{cardId}/delete")
+    public String deleteCard(
+            @PathVariable String publicId,
+            @PathVariable Long cardId,
+            Authentication authentication) {
+
+        String email = authentication.getName();
+        User currentUser = boardService.getUserByEmail(email);
+
+        try {
+            Card card = cardService.deleteCard(cardId, currentUser.getId());
+            BoardColumn column = card.getColumn();
+            return "redirect:/" + publicId + "/" + column.getBoard().getSlug();
+        } catch (AccessDeniedException e) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+    }
+
     @PostMapping("/cards/{cardId}/toggle")
     public String toggleCardCompleted(
             @PathVariable String publicId,
             @PathVariable Long cardId,
-            Authentication auth) {
+            Authentication authentication) {
 
-        String email = auth.getName();
+        String email = authentication.getName();
         User currentUser = boardService.getUserByEmail(email);
 
         try {

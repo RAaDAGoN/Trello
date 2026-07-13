@@ -38,6 +38,28 @@ public class BoardService {
         return boardRepository.save(newBoard);
     }
 
+    @Transactional
+    public Board updateBoard(Long boardId, BoardDTO boardDTO, Long userId) {
+        Board board = boardRepository.findByIdAndUser_Id(boardId, userId)
+                .orElseThrow(() -> new AccessDeniedException("Board with id: " + boardId + " not found"));
+
+        if (!board.getUser().getId().equals(userId)) {
+            throw new AccessDeniedException("Access denied");
+        }
+
+        String oldName = board.getName();
+        board.setName(boardDTO.getName());
+        board.setDescription(boardDTO.getDescription());
+
+        // Если имя изменилось - новый слаг
+        if (!oldName.equals(board.getName())) {
+            board.setSlug(slugGenerator.generateSlug(boardDTO.getName()));
+        }
+
+        return  boardRepository.save(board);
+    }
+
+
     public Board getBoardBySlug(String slug, Long userId) {
         Board board = boardRepository.findBySlugAndUser_Id(slug, userId)
                 .orElseThrow(() -> new AccessDeniedException("Access denied"));
@@ -49,8 +71,8 @@ public class BoardService {
         return board;
     }
 
-    /*
-    Возвращает список досок конкретного пользователя
+    /**
+     * Возвращает список досок конкретного пользователя
      */
     public List<Board> getBoardByOwner(Long userId) {
         return boardRepository.findByUser_Id(userId);
@@ -62,7 +84,7 @@ public class BoardService {
     }
 
     public User getUserByEmail(String currentEmail) {
-        return  userRepository.findByEmail(currentEmail)
+        return userRepository.findByEmail(currentEmail)
                 .orElseThrow(() -> new EntityNotFoundException("User not found"));
     }
 

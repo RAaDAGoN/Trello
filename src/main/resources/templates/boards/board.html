@@ -24,6 +24,10 @@
             border-radius: 4px;
         }
     </style>
+
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    <meta name="_csrf_parameterName" th:content="${_csrf.parameterName}"/>
 </head>
 <body class="bg-gray-100 min-h-screen">
 <!-- Header -->
@@ -37,8 +41,14 @@
                 </svg>
                 Назад
             </a>
-            <h1 class="text-2xl font-bold" th:text="${board.name}">Название доски</h1>
+            <input type="text"
+                   id="boardNameInput"
+                   th:value="${board.name}"
+                   class="text-2xl font-bold bg-transparent border-b-2 border-transparent focus:border-white focus:outline-none text-white placeholder-blue-200 max-w-md"
+                   oninput="checkBoardChanges()"
+                   placeholder="Название доски">
         </div>
+
         <div class="flex items-center gap-4">
             <span th:text="${user.getUsername()}">Имя</span>
             <form th:action="@{/logout}" method="post">
@@ -52,13 +62,37 @@
 
 <!-- Board Info -->
 <div class="bg-white border-b px-6 py-3">
-    <p class="text-gray-600 text-sm" th:text="${board.description} ?: 'Без описания'">
-        Описание доски
-    </p>
+    <textarea id="boardDescriptionInput"
+              th:text="${board.description}"
+              rows="1"
+              class="w-full text-gray-600 text-sm bg-transparent border-b-2 border-transparent focus:border-blue-500 focus:outline-none resize-none"
+              oninput="checkBoardChanges(); autoResizeTextarea(this)"
+              placeholder="Добавьте описание доски..."></textarea>
 </div>
 
+<!-- ✅ Блок с кнопками сохранения (скрыт по умолчанию) -->
+<div id="saveBoardButtonContainer" class="hidden bg-blue-50 border-b px-6 py-3">
+    <div class="flex gap-3 justify-end">
+        <button onclick="discardBoardChanges()"
+                class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-700 text-sm">
+            Отменить
+        </button>
+        <button onclick="saveBoardChanges()"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+            Сохранить изменения
+        </button>
+    </div>
+</div>
+
+<!-- Скрытая форма для отправки -->
+<form id="updateBoardForm" method="post" class="hidden">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    <input type="hidden" name="name" id="formBoardName">
+    <input type="hidden" name="description" id="formBoardDescription">
+</form>
+
 <!-- Columns Container -->
-<div class="flex gap-4 p-6 overflow-x-auto scrollbar-thin" style="min-height: calc(100vh - 160px);">
+<div class="flex gap-4 p-6 overflow-x-auto scrollbar-thin" >
 
     <!-- Существующие колонки -->
     <div th:each="column : ${board.columns}"
@@ -93,7 +127,7 @@
             </div>
         </div>
 
-        <!-- ✅ Карточки в колонке (теперь div с data-атрибутами) -->
+        <!-- Карточки в колонке -->
         <div class="flex-1 space-y-2 overflow-y-auto max-h-[calc(100vh-300px)]">
             <div th:each="card : ${column.cards}"
                  th:data-card-id="${card.id}"
@@ -153,11 +187,23 @@
                     <div th:each="comment : ${card.comments}"
                          class="bg-gray-50 rounded-lg p-3 mb-2 border-l-4 border-blue-500">
                         <div class="flex justify-between items-start mb-1">
-                            <span class="font-semibold text-gray-800 text-sm" th:text="${comment.user.name}">Автор</span>
+                            <span class="font-semibold text-gray-800 text-sm" th:text="${comment.getUser().getUsername()}">Автор</span>
                             <span class="text-xs text-gray-500"
-                                  th:text="${#temporals.format(comment.createdAt, 'dd.MM.yyyy HH:mm')}">Дата</span>
+                                  th:text="${#temporals.format(#temporals.createDateTime(comment.createdAt), 'dd.MM.yyyy HH:mm')}">Дата</span>
                         </div>
-                        <p class="text-sm text-gray-700 whitespace-pre-wrap" th:text="${comment.content}">Текст</p>
+
+                        <form th:if="${comment.user.id == user.id or board.user.id == user.id}"
+                              th:action="@{/{publicId}/comments/{commentId}/delete(publicId=${publicId}, commentId=${comment.id})}"
+                              method="post"
+                              onsubmit="return confirm('Удалить этот комментарий?');"
+                              onclick="event.stopPropagation()">
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                            <button type="submit"
+                                    class="text-red-400 hover:text-red-600 text-xs font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors">
+                                Удалить
+                            </button>
+                        </form>
+                        <p class="text-sm text-gray-700 whitespace-pre-wrap" th:text="${comment.comment}">Текст</p>
                     </div>
                 </div>
             </div>
@@ -272,62 +318,137 @@
 
 <!-- Модальное окно просмотра карточки -->
 <div id="viewCardModal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <!-- Заголовок модалки -->
-        <div class="flex justify-between items-start p-6 border-b">
-            <div class="flex-1">
-                <div class="flex items-center gap-2 text-sm text-gray-500 mb-2">
-                    <span>в колонке</span>
-                    <span id="viewColumnName" class="font-semibold text-blue-600">Колонка</span>
-                </div>
-                <h2 id="viewCardTitle" class="text-2xl font-bold text-gray-800">Заголовок карточки</h2>
-                <p class="text-xs text-gray-400 mt-1">
+    <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] flex flex-col">
+
+        <!-- Заголовок модалки (на всю ширину) -->
+        <div class="flex justify-between items-center p-4 border-b bg-gray-50">
+            <div class="flex items-center gap-2 text-sm text-gray-600">
+                <span>в колонке</span>
+                <span id="viewColumnName" class="font-semibold text-blue-600">Колонка</span>
+                <span class="mx-2 text-gray-400">•</span>
+                <span class="text-xs text-gray-400">
                     Создано: <span id="viewCreatedAt">дата</span>
-                </p>
+                </span>
             </div>
             <button onclick="closeViewCardModal()"
-                    class="text-gray-400 hover:text-gray-600 ml-4 p-1">
+                    class="text-gray-400 hover:text-gray-600 p-1">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
             </button>
         </div>
 
-        <!-- Описание -->
-        <div class="p-6 border-b">
-            <h3 class="text-sm font-semibold text-gray-700 mb-2 uppercase">Описание</h3>
-            <p id="viewCardDescription" class="text-gray-700 whitespace-pre-wrap">
-                Описание карточки
-            </p>
-        </div>
+        <!-- Основное содержимое: 2 колонки -->
+        <div class="flex flex-col md:flex-row flex-1 overflow-hidden">
 
-        <!-- Комментарии -->
-        <div class="p-6">
-            <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase">
-                Комментарии (<span id="viewCommentsCount">0</span>)
-            </h3>
+            <!-- ═══════════ ЛЕВАЯ КОЛОНКА: Инфо о карточке ═══════════ -->
+            <div class="flex-1 p-6 overflow-y-auto border-r border-gray-200">
+                <!-- Заголовок карточки -->
+                <div class="mb-4">
+                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Название</label>
+                    <input type="text"
+                           id="viewCardTitle"
+                           class="w-full text-xl font-bold text-gray-800 border-b-2 border-transparent focus:border-blue-500 focus:outline-none bg-transparent pb-1"
+                           oninput="checkCardChanges()"
+                           placeholder="Название карточки">
+                </div>
 
-            <!-- Список комментариев -->
-            <div id="viewCardComments" class="space-y-2">
-                <!-- Комментарии будут вставлены сюда через JS -->
+                <!-- Описание -->
+                <div class="mb-4">
+                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Описание</label>
+                    <textarea id="viewCardDescription"
+                              rows="6"
+                              class="w-full text-gray-700 whitespace-pre-wrap border-2 border-transparent focus:border-blue-500 focus:outline-none bg-transparent resize-none"
+                              placeholder="Добавьте описание..."
+                              oninput="checkCardChanges()"></textarea>
+                </div>
+
+                <!-- Кнопка сохранения (появляется при изменениях) -->
+                <div id="saveButtonContainer" class="hidden mb-4">
+                    <div class="flex gap-2">
+                        <button onclick="discardCardChanges()"
+                                class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-700 text-sm">
+                            Отменить
+                        </button>
+                        <button onclick="saveCardChanges()"
+                                class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                            Сохранить изменения
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Разделитель -->
+                <hr class="my-4">
+
+                <!-- Кнопка удаления -->
+                <button type="button"
+                        onclick="deleteCurrentCard()"
+                        class="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    Удалить карточку
+                </button>
             </div>
 
-            <!-- Форма добавления комментария (пока заглушка) -->
-            <div class="mt-4 pt-4 border-t">
-                <textarea id="newCommentText"
-                          rows="2"
-                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                          placeholder="Добавить комментарий..."
-                          disabled></textarea>
-                <button type="button"
-                        disabled
-                        class="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm opacity-50 cursor-not-allowed">
-                    Отправить (скоро)
-                </button>
+            <!-- ПРАВАЯ КОЛОНКА: Комментарии -->
+            <div class="w-96 flex flex-col bg-gray-50 overflow-hidden">
+                <!-- Заголовок секции -->
+                <div class="p-4 border-b bg-white">
+                    <h3 class="text-sm font-semibold text-gray-700 uppercase flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                        </svg>
+                        Комментарии
+                        <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                <span id="viewCommentsCount">0</span>
+            </span>
+                    </h3>
+                </div>
+
+                <!-- ✅ КОНТЕЙНЕР КОММЕНТАРИЕВ СО СКРОЛЛОМ -->
+                <div id="viewCardComments"
+                     class="flex-1 overflow-y-auto p-4 space-y-3"
+                     style="max-height: calc(90vh - 280px);">
+                    <!-- Комментарии будут здесь -->
+                </div>
+
+                <!-- Форма добавления комментария (фиксирована внизу) -->
+                <div class="p-4 border-t bg-white flex-shrink-0">
+                    <form id="addCommentForm" method="post">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+                        <textarea id="newCommentText"
+                                  name="comment"
+                                  rows="2"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none"
+                                  placeholder="Напишите комментарий..."
+                                  required></textarea>
+
+                        <div class="flex justify-end mt-2">
+                            <button type="submit"
+                                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                                </svg>
+                                Отправить
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Скрытая форма для отправки -->
+<form id="updateCardForm" method="post" class="hidden">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    <input type="hidden" name="title" id="formTitle">
+    <input type="hidden" name="description" id="formDescription">
+</form>
 
 <!-- Модальное окно изменения колонки -->
 <div id="editColumnModal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
@@ -367,9 +488,61 @@
     const publicId = [[${publicId}]];
     const boardId = [[${board.id}]];
 
+    // ===== ДОСКА =====
+    const originalBoardName = /*[[${board.name}]]*/ '';
+    const originalBoardDescription = /*[[${board.description}]]*/ '';
 
+    function autoResizeTextarea(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }
 
-    // ===== Колонки =====
+    function checkBoardChanges() {
+        const currentName = document.getElementById('boardNameInput').value;
+        const currentDescription = document.getElementById('boardDescriptionInput').value;
+
+        const hasChanges = currentName !== originalBoardName
+            || currentDescription !== originalBoardDescription;
+
+        const container = document.getElementById('saveBoardButtonContainer');
+        if (hasChanges) {
+            container.classList.remove('hidden');
+        } else {
+            container.classList.add('hidden');
+        }
+    }
+
+    function discardBoardChanges() {
+        document.getElementById('boardNameInput').value = originalBoardName;
+        document.getElementById('boardDescriptionInput').value = originalBoardDescription;
+        document.getElementById('saveBoardButtonContainer').classList.add('hidden');
+
+        const textarea = document.getElementById('boardDescriptionInput');
+        textarea.style.height = 'auto';
+    }
+
+    function saveBoardChanges() {
+        const name = document.getElementById('boardNameInput').value.trim();
+        const description = document.getElementById('boardDescriptionInput').value;
+
+        if (!name) {
+            alert('Название доски не может быть пустым');
+            return;
+        }
+
+        const form = document.getElementById('updateBoardForm');
+        form.action = `/${publicId}/boards/${boardId}/update`;
+
+        document.getElementById('formBoardName').value = name;
+        document.getElementById('formBoardDescription').value = description;
+
+        const container = document.getElementById('saveBoardButtonContainer');
+        container.innerHTML = '<div class="text-center text-blue-600 text-sm">Сохранение...</div>';
+
+        form.submit();
+    }
+
+    // ===== КОЛОНКИ =====
     function openAddColumnModal() {
         document.getElementById('addColumnModal').classList.remove('hidden');
         document.getElementById('addColumnModal').classList.add('flex');
@@ -382,7 +555,30 @@
         document.getElementById('addColumnForm').reset();
     }
 
-    // ===== Создание карточки =====
+    function openEditColumnModal(buttonElement) {
+        const columnId = buttonElement.dataset.columnId;
+        const columnName = buttonElement.dataset.columnName;
+
+        const form = document.getElementById('editColumnForm');
+        const input = document.getElementById('editColumnName');
+
+        form.action = `/${publicId}/columns/${columnId}/update`;
+        form.method = "post";
+        input.value = columnName;
+
+        document.getElementById('editColumnModal').classList.remove('hidden');
+        document.getElementById('editColumnModal').classList.add('flex');
+        input.focus();
+        input.select();
+    }
+
+    function closeEditColumnModal() {
+        document.getElementById('editColumnModal').classList.add('hidden');
+        document.getElementById('editColumnModal').classList.remove('flex');
+        document.getElementById('editColumnForm').reset();
+    }
+
+    // ===== КАРТОЧКИ =====
     function openAddCardModal(columnId) {
         const form = document.getElementById('addCardForm');
         form.action = `/${publicId}/columns/${columnId}/cards`;
@@ -398,32 +594,114 @@
         document.getElementById('addCardForm').reset();
     }
 
-    // ===== ✅ Просмотр карточки =====
+    // ===== Удаление карточки =====
+    function deleteCurrentCard() {
+        if (!currentCardId) return;
+
+        if (!confirm('Удалить карточку и все её комментарии?')) {
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/${publicId}/cards/${currentCardId}/delete`;
+
+        const csrfParam = document.querySelector('meta[name="_csrf_parameterName"]')?.content || '_csrf';
+        const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || '';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = csrfParam;
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    let currentCardId = null;
+    let originalTitle = '';
+    let originalDescription = '';
+
     function openViewCardModal(cardElement) {
-        // Читаем данные из data-атрибутов
-        const title = cardElement.dataset.cardTitle;
-        const description = cardElement.dataset.cardDescription;
-        const columnName = cardElement.dataset.columnName;
-        const createdAt = cardElement.dataset.createdAt;
+        const card = cardElement.closest('[data-card-id]');
+        if (!card) return;
 
-        // Копируем HTML комментариев из скрытого блока
-        const commentsHtml = cardElement.querySelector('.card-comments-data').innerHTML;
+        const cardId = card.dataset.cardId;
+        const title = card.dataset.cardTitle || '';
+        const description = card.dataset.cardDescription || '';
+        const columnName = card.dataset.columnName || '';
+        const createdAt = card.dataset.createdAt || '';
 
-        // Заполняем модалку
-        document.getElementById('viewCardTitle').textContent = title;
-        document.getElementById('viewCardDescription').textContent = description || 'Нет описания';
+        currentCardId = cardId;
+        originalTitle = title;
+        originalDescription = description;
+
+        // Заполняем поля
+        document.getElementById('viewCardTitle').value = title;
+        document.getElementById('viewCardDescription').value = description;
         document.getElementById('viewColumnName').textContent = columnName;
-        document.getElementById('viewCreatedAt').textContent = createdAt;
-        document.getElementById('viewCardComments').innerHTML = commentsHtml;
+        document.getElementById('viewCreatedAt').textContent = new Date(createdAt).toLocaleString('ru-RU');
 
-        // Считаем количество комментариев
-        const commentsCount = cardElement.querySelector('.card-comments-data').children.length;
-        const hasNoComments = cardElement.querySelector('.card-comments-data .text-center') !== null;
-        document.getElementById('viewCommentsCount').textContent = hasNoComments ? 0 : commentsCount;
+        // ✅ Устанавливаем action для формы комментария
+        const commentForm = document.getElementById('addCommentForm');
+        commentForm.action = `/${publicId}/cards/${cardId}/comments`;
 
-        // Показываем модалку
+        // Очищаем поле ввода
+        document.getElementById('newCommentText').value = '';
+
+        // Комментарии
+        const commentsContainer = card.querySelector('.card-comments-data');
+        if (commentsContainer) {
+            document.getElementById('viewCardComments').innerHTML = commentsContainer.innerHTML;
+            const hasNoComments = commentsContainer.querySelector('.text-center') !== null;
+            document.getElementById('viewCommentsCount').textContent = hasNoComments ? 0 : commentsContainer.children.length;
+        }
+
+        document.getElementById('saveButtonContainer').classList.add('hidden');
+
         document.getElementById('viewCardModal').classList.remove('hidden');
         document.getElementById('viewCardModal').classList.add('flex');
+    }
+
+    function checkCardChanges() {
+        const currentTitle = document.getElementById('viewCardTitle').value;
+        const currentDescription = document.getElementById('viewCardDescription').value;
+
+        const hasChanges = currentTitle !== originalTitle || currentDescription !== originalDescription;
+
+        if (hasChanges) {
+            document.getElementById('saveButtonContainer').classList.remove('hidden');
+        } else {
+            document.getElementById('saveButtonContainer').classList.add('hidden');
+        }
+    }
+
+    function discardCardChanges() {
+        document.getElementById('viewCardTitle').value = originalTitle;
+        document.getElementById('viewCardDescription').value = originalDescription;
+        document.getElementById('saveButtonContainer').classList.add('hidden');
+    }
+
+    function saveCardChanges() {
+        const title = document.getElementById('viewCardTitle').value.trim();
+        const description = document.getElementById('viewCardDescription').value;
+
+        if (!title) {
+            alert('Заголовок не может быть пустым');
+            return;
+        }
+
+        const form = document.getElementById('updateCardForm');
+        form.action = `/${publicId}/cards/${currentCardId}/update`;
+        document.getElementById('formTitle').value = title;
+        document.getElementById('formDescription').value = description;
+
+        const container = document.querySelector('#viewCardModal .bg-white');
+        container.style.opacity = '0.5';
+        container.style.pointerEvents = 'none';
+
+        form.submit();
     }
 
     function closeViewCardModal() {
@@ -431,7 +709,7 @@
         document.getElementById('viewCardModal').classList.remove('flex');
     }
 
-    // ===== Закрытие модалок =====
+    // ===== ЗАКРЫТИЕ МОДАЛОК =====
     document.getElementById('addColumnModal').addEventListener('click', function(e) {
         if (e.target === this) closeAddColumnModal();
     });
@@ -444,35 +722,6 @@
         if (e.target === this) closeViewCardModal();
     });
 
-    // ===== Редактирование колонки =====
-    function openEditColumnModal(buttonElement) {
-        const columnId = buttonElement.dataset.columnId;
-        const columnName = buttonElement.dataset.columnName;
-
-        const form = document.getElementById('editColumnForm');
-        const input = document.getElementById('editColumnName');
-
-        // Устанавливаем action формы
-        form.action = `/${publicId}/columns/${columnId}/update`;
-        form.method = "post";
-
-        // Заполняем текущее название
-        input.value = columnName;
-
-        // Показываем модалку
-        document.getElementById('editColumnModal').classList.remove('hidden');
-        document.getElementById('editColumnModal').classList.add('flex');
-        input.focus();
-        input.select();
-    }
-
-    function closeEditColumnModal() {
-        document.getElementById('editColumnModal').classList.add('hidden');
-        document.getElementById('editColumnModal').classList.remove('flex');
-        document.getElementById('editColumnForm').reset();
-    }
-
-    // Закрытие модалки по клику на фон
     document.getElementById('editColumnModal').addEventListener('click', function(e) {
         if (e.target === this) closeEditColumnModal();
     });
@@ -483,6 +732,14 @@
             closeAddCardModal();
             closeViewCardModal();
             closeEditColumnModal();
+        }
+    });
+
+    // ===== ИНИЦИАЛИЗАЦИЯ =====
+    document.addEventListener('DOMContentLoaded', function() {
+        const textarea = document.getElementById('boardDescriptionInput');
+        if (textarea) {
+            autoResizeTextarea(textarea);
         }
     });
 </script>

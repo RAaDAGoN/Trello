@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,7 +42,7 @@ public class Card {
     @Builder.Default
     private Boolean completed = false;
 
-    @OneToMany(mappedBy = "cardId", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "card", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("createdAt ASC")
     @Builder.Default
     private List<CardComment> comments = new ArrayList<>();
@@ -49,7 +50,7 @@ public class Card {
     @PrePersist
     protected void onCreate() {
         if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now().toString();
+            this.createdAt = LocalDateTime.now(ZoneId.systemDefault()).toString();
         }
     }
 }

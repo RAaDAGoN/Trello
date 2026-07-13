@@ -1,6 +1,7 @@
 package dev.radagon.trello.service;
 
 import dev.radagon.trello.dto.CardDTO;
+import dev.radagon.trello.entity.Board;
 import dev.radagon.trello.entity.BoardColumn;
 import dev.radagon.trello.entity.Card;
 import dev.radagon.trello.entity.User;
@@ -43,6 +44,41 @@ public class CardService {
         return cardRepository.save(card);
     }
 
+    /**
+     * Ищет card, далее проверяет права через цепочку
+     * сохраняет изменения в бд
+     */
+
+    @Transactional
+    public Card update(CardDTO cardDTO, Long cardId, Long userId) {
+        Card card = cardRepository.findByIdWithFullHierarchy(cardId)
+                .orElseThrow(()-> new EntityNotFoundException("Card with id: " + cardId + " not found"));
+
+        if (!card.getColumn().getBoard().getUser().getId().equals(userId)) {
+            throw new AccessDeniedException("You are not allowed to perform this action");
+        }
+
+        card.setTitle(cardDTO.getTitle());
+        card.setDescription(cardDTO.getDescription());
+
+        return cardRepository.save(card);
+    }
+
+    @Transactional
+    public Card deleteCard(Long cardId, Long userId) {
+        Card card = cardRepository.findByIdWithFullHierarchy(cardId)
+                .orElseThrow(()-> new EntityNotFoundException("Card with id: " + cardId + " not found"));
+
+        if (!card.getColumn().getBoard().getUser().getId().equals(userId)) {
+            throw new AccessDeniedException("You are not allowed to perform this action");
+        }
+
+
+        cardRepository.delete(card);
+
+        return card;
+    }
+
     @Transactional
     public Card toggleCardCompleted(Long cardId, Long userId) {
         Card card = cardRepository.findByIdWithFullHierarchy(cardId)
@@ -53,7 +89,7 @@ public class CardService {
             throw new AccessDeniedException("Нет прав на эту карточку");
         }
 
-        // ✅ Переключаем флаг
+        // Переключаем флаг
         card.setCompleted(!card.getCompleted());
         return cardRepository.save(card);
     }

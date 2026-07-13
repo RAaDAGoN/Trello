@@ -7,6 +7,7 @@ import dev.radagon.trello.repository.UserRepository;
 import dev.radagon.trello.service.BoardService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -117,5 +118,38 @@ public class BoardController {
         model.addAttribute("publicId", publicId);
 
         return "boards/board";
+    }
+
+    @PostMapping("/{publicId}/boards/{boardId}/update")
+    public String updateBoard(
+            @PathVariable String publicId,
+            @PathVariable Long boardId,
+            @ModelAttribute BoardDTO boardDTO,
+            Model model,
+            Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken) {
+            return "redirect:/login";
+        }
+
+        String currentEmail = authentication.getName();
+        User currentUser = userRepository.findByEmail(currentEmail)
+                .orElse(null);
+
+        if (currentUser == null) {
+            return "redirect:/login";
+        }
+
+        if (!currentUser.getPublicId().equals(publicId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No access");
+        }
+
+        try {
+            Board board = boardService.updateBoard(boardId, boardDTO, currentUser.getId());
+            return "redirect:/"+publicId+ "/" + board.getSlug();
+        } catch (AccessDeniedException e) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+        }
+
     }
 }
