@@ -14,6 +14,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -31,7 +32,7 @@ public class BoardService {
                 .user(user)
                 .name(boardDTO.getName())
                 .description(boardDTO.getDescription())
-                .createdAt(LocalDate.now().toString())
+                .createdAt(LocalDateTime.now())
                 .slug(slugGenerator.generateSlug(boardDTO.getName()))
                 .build();
 

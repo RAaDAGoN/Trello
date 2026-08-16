@@ -189,7 +189,7 @@
                         <div class="flex justify-between items-start mb-1">
                             <span class="font-semibold text-gray-800 text-sm" th:text="${comment.getUser().getUsername()}">Автор</span>
                             <span class="text-xs text-gray-500"
-                                  th:text="${#temporals.format(#temporals.createDateTime(comment.createdAt), 'dd.MM.yyyy HH:mm')}">Дата</span>
+                                  th:text="${#temporals.format(comment.createdAt, 'dd.MM.yyyy HH:mm')}">Дата</span>
                         </div>
 
                         <form th:if="${comment.user.id == user.id or board.user.id == user.id}"
