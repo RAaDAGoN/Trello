@@ -1,11 +1,11 @@
 package dev.radagon.trello.controller;
 
+import dev.radagon.trello.config.SecurityHelper;
 import dev.radagon.trello.dto.CardDTO;
 import dev.radagon.trello.entity.Board;
 import dev.radagon.trello.entity.BoardColumn;
 import dev.radagon.trello.entity.Card;
 import dev.radagon.trello.entity.User;
-import dev.radagon.trello.service.BoardColumnService;
 import dev.radagon.trello.service.BoardService;
 import dev.radagon.trello.service.CardService;
 import lombok.RequiredArgsConstructor;
@@ -25,8 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/{publicId}")
 public class CardController {
     private final CardService cardService;
-    private final BoardService boardService;
-    private final BoardColumnService columnService;
+    private final SecurityHelper securityHelper;
 
     @PostMapping("/columns/{columnId}/cards")
     public String createCard(
@@ -34,18 +33,12 @@ public class CardController {
             @PathVariable Long columnId,
             @ModelAttribute CardDTO dto,
             Authentication authentication) {
-        String email = authentication.getName();
 
-        User owner = boardService.getOwnerByPublicId(publicId);
-        User currentUser = boardService.getUserByEmail(email);
+        User currentUser = securityHelper.getAuthenticatedUser(publicId, authentication);
+        if (currentUser == null) {return  "redirect:/login";}
 
-        try {
-            Card card = cardService.createCard(columnId, dto, currentUser.getId());
-            BoardColumn column = card.getColumn();
-            return "redirect:/" + publicId + "/" + column.getBoard().getSlug();
-        } catch (AccessDeniedException e) {
-            throw new AccessDeniedException(HttpStatus.FORBIDDEN.toString());
-        }
+        Card card = cardService.createCard(columnId, dto, currentUser.getId());
+        return "redirect:/" + publicId + "/" + card.getColumn().getBoard().getSlug();
     }
 
     @PostMapping("/cards/{cardId}/update")
@@ -54,16 +47,12 @@ public class CardController {
             @PathVariable Long cardId,
             @ModelAttribute CardDTO dto,
             Authentication authentication) {
-        String email = authentication.getName();
-        User currentUser = boardService.getUserByEmail(email);
 
-        try {
-            Card card = cardService.update(dto, cardId, currentUser.getId());
-            BoardColumn column = card.getColumn();
-            return "redirect:/" + publicId + "/" + column.getBoard().getSlug();
-        } catch (AccessDeniedException e) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-        }
+        User currentUser = securityHelper.getAuthenticatedUser(publicId, authentication);
+        if (currentUser == null) {return  "redirect:/login";}
+
+        Card card = cardService.update(dto, cardId, currentUser.getId());
+        return "redirect:/" + publicId + "/" + card.getColumn().getBoard().getSlug();
     }
 
     @PostMapping("/cards/{cardId}/delete")
@@ -72,16 +61,11 @@ public class CardController {
             @PathVariable Long cardId,
             Authentication authentication) {
 
-        String email = authentication.getName();
-        User currentUser = boardService.getUserByEmail(email);
+        User currentUser = securityHelper.getAuthenticatedUser(publicId, authentication);
+        if (currentUser == null) {return  "redirect:/login";}
 
-        try {
-            Card card = cardService.deleteCard(cardId, currentUser.getId());
-            BoardColumn column = card.getColumn();
-            return "redirect:/" + publicId + "/" + column.getBoard().getSlug();
-        } catch (AccessDeniedException e) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-        }
+        Card card = cardService.deleteCard(cardId, currentUser.getId());
+        return "redirect:/" + publicId + "/" + card.getColumn().getBoard().getSlug();
     }
 
     @PostMapping("/cards/{cardId}/toggle")
@@ -90,15 +74,10 @@ public class CardController {
             @PathVariable Long cardId,
             Authentication authentication) {
 
-        String email = authentication.getName();
-        User currentUser = boardService.getUserByEmail(email);
+        User currentUser = securityHelper.getAuthenticatedUser(publicId, authentication);
+        if (currentUser == null) {return  "redirect:/login";}
 
-        try {
-            Card card = cardService.toggleCardCompleted(cardId, currentUser.getId());
-            Board board = card.getColumn().getBoard();
-            return "redirect:/" + publicId + "/" + board.getSlug();
-        } catch (AccessDeniedException e) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Нет прав");
-        }
+        Card card = cardService.toggleCardCompleted(cardId, currentUser.getId());
+        return "redirect:/" + publicId + "/" + card.getColumn().getBoard().getSlug();
     }
 }

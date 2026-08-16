@@ -1,9 +1,11 @@
 package dev.radagon.trello.config;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindException;
@@ -14,15 +16,15 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
-import java.nio.file.AccessDeniedException;
 
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResponseStatusException.class)
-    public String handleResponseStatusException(ResponseStatusException e, Model model) {
+    public String handleResponseStatusException(ResponseStatusException e, Model model, HttpServletResponse response) {
         int statusCode = e.getStatusCode().value();
+        response.setStatus(statusCode);
         log.warn("ResponseStatusException: {} - {} (reason: {})",
                 statusCode, e.getMessage(), e.getReason());
 
@@ -127,4 +129,5 @@ public class GlobalExceptionHandler {
 
         return "error/500";
     }
+
 }

@@ -20,7 +20,6 @@ public class CardCommentService {
     private final CardCommentRepository commentRepository;
     private final CardRepository cardRepository;
 
-    @Transactional
     public CardComment createComment(Long cardId, CardCommentDTO dto, Long userId) {
         // получаем карточку
         Card card = cardRepository.findByIdWithFullHierarchy(cardId)
@@ -43,7 +42,6 @@ public class CardCommentService {
         return commentRepository.save(comment);
     }
 
-    @Transactional
     public Card deleteComment(Long commentId, Long userId) {
         CardComment comment = commentRepository.findByIdWithFullHierarchy(commentId)
                 .orElseThrow(()-> new EntityNotFoundException("Card with id: " + commentId + " not found"));

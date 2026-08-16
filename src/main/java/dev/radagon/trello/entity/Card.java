@@ -14,20 +14,24 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "Card", indexes = {
+        @Index(name = "idx_card_column_id", columnList = "board_column_id"),
+        @Index(name = "idx_card_user_id", columnList = "user_id")
+})
 public class Card {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "board_column_id")
+    @JoinColumn(name = "board_column_id", nullable = false)
     private BoardColumn column;
 
     @Column(nullable = false)
     private Integer position;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false)
     private User userId;
 
     @Column(nullable = false)
@@ -36,7 +40,7 @@ public class Card {
     private String description;
 
     @Column(nullable = false)
-    private String createdAt;
+    private LocalDateTime createdAt;
 
     @Column(nullable = false)
     @Builder.Default
@@ -50,7 +54,7 @@ public class Card {
     @PrePersist
     protected void onCreate() {
         if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now(ZoneId.systemDefault()).toString();
+            this.createdAt = LocalDateTime.now(ZoneId.systemDefault());
         }
     }
 }

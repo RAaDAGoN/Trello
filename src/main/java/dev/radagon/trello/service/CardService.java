@@ -19,8 +19,6 @@ public class CardService {
     private final CardRepository cardRepository;
     private final BoardColumnRepository columnRepository;
 
-    private final BoardColumnRepository boardColumnRepository;
-
     public Card createCard(Long columnId, CardDTO cardDTO, Long userId) {
         BoardColumn column = columnRepository.findByIdWithBoardAndUser(columnId)
                 .orElseThrow(()-> new EntityNotFoundException("Column with id: " + columnId + " not found"));
@@ -30,7 +28,7 @@ public class CardService {
             throw new AccessDeniedException("You are not allowed to perform this action");
         }
 
-        int maxPosition = boardColumnRepository.findMaxPositionByBoardId(columnId)
+        int maxPosition = columnRepository.findMaxPositionByBoardId(columnId)
                 .orElse(-1);
 
         Card card = Card.builder()

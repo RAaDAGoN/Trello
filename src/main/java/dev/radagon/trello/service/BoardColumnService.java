@@ -15,6 +15,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
+@Transactional
 public class BoardColumnService {
     private BoardColumnRepository columnRepository;
     private BoardRepository boardRepository;
@@ -25,7 +26,6 @@ public class BoardColumnService {
      * если колонок нет, то -1
      */
 
-    @Transactional
     public BoardColumn createColumn(BoardColumnDTO boardColumnDTO, Long boardId, Long userId) {
         Board board = boardRepository.findByIdAndUser_Id(boardId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Board Not Found"));
@@ -42,7 +42,6 @@ public class BoardColumnService {
         return columnRepository.save(boardColumn);
     }
 
-    @Transactional
     public BoardColumn updateColumn(Long columnId, BoardColumnDTO columnDTO, Long userId) {
         BoardColumn column = columnRepository.findByIdWithBoardAndUser(columnId)
                 .orElseThrow(() -> new EntityNotFoundException("Column Not Found"));
@@ -68,7 +67,6 @@ public class BoardColumnService {
         return columnRepository.findByBoardIdOrderByPositionAsc(boardId);
     }
 
-    @Transactional
     public Board deleteColumn(Long columnId, Long userId) {
         BoardColumn column = columnRepository.findByIdWithBoardAndUser(columnId)
                 .orElseThrow(() -> new EntityNotFoundException("Колонка не найдена"));

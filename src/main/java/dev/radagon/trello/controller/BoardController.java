@@ -1,53 +1,33 @@
 package dev.radagon.trello.controller;
 
+import dev.radagon.trello.config.SecurityHelper;
 import dev.radagon.trello.dto.BoardDTO;
 import dev.radagon.trello.entity.Board;
 import dev.radagon.trello.entity.User;
-import dev.radagon.trello.repository.UserRepository;
 import dev.radagon.trello.service.BoardService;
-import lombok.AllArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @Controller
-@AllArgsConstructor
+@RequiredArgsConstructor
+@RequestMapping("/{publicId}")
 public class BoardController {
     private final BoardService boardService;
-    private final UserRepository userRepository;
+    private final SecurityHelper securityHelper;
 
-    @GetMapping("/{publicId}/boards")
+    @GetMapping("/boards")
     public String boards(
             @PathVariable String publicId,
             Model model,
             Authentication authentication) {
 
-        if (authentication == null || !authentication.isAuthenticated()
-        || authentication instanceof AnonymousAuthenticationToken) {
-            return "redirect:/login";
-        }
-
-        String currentEmail = authentication.getName();
-        User currentUser = userRepository.findByEmail(currentEmail)
-                .orElse(null);
-
-        if (currentUser == null) {
-            return "redirect:/login";
-        }
-
-        if (!currentUser.getPublicId().equals(publicId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No access");
-        }
+        User currentUser = securityHelper.getAuthenticatedUser(publicId, authentication);
+        if (currentUser == null) {return  "redirect:/login";}
 
         List<Board> boards = boardService.getBoardByOwner(currentUser.getId());
 
@@ -60,56 +40,26 @@ public class BoardController {
         return "boards/boards";
     }
 
-    @PostMapping("/{publicId}/boards")
+    @PostMapping("/boards")
     public String createBoard(
             @PathVariable String publicId,
             @ModelAttribute BoardDTO boardDTO,
             Authentication authentication) {
-
-        if (authentication == null || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken) {
-            return "redirect:/login";
-        }
-
-        String currentEmail = authentication.getName();
-        User currentUser = userRepository.findByEmail(currentEmail)
-                .orElse(null);
-
-        if (currentUser == null) {
-            return "redirect:/login";
-        }
-
-        if (!currentUser.getPublicId().equals(publicId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No access");
-        }
+        User currentUser = securityHelper.getAuthenticatedUser(publicId, authentication);
+        if (currentUser == null) {return  "redirect:/login";}
 
         Board board = boardService.createBoard(boardDTO, currentUser.getId());
-
         return "redirect:/"+publicId+ "/" + board.getSlug();
     }
 
-    @GetMapping("/{publicId}/{boardSlug}")
+    @GetMapping("/{boardSlug}")
     public String viewBoard(
             @PathVariable String publicId,
             @PathVariable String boardSlug,
             Model model,
             Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken) {
-            return "redirect:/login";
-        }
-
-        String currentEmail = authentication.getName();
-        User currentUser = userRepository.findByEmail(currentEmail)
-                .orElse(null);
-
-        if (currentUser == null) {
-            return "redirect:/login";
-        }
-
-        if (!currentUser.getPublicId().equals(publicId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No access");
-        }
+        User currentUser = securityHelper.getAuthenticatedUser(publicId, authentication);
+        if (currentUser == null) {return  "redirect:/login";}
 
         Board board = boardService.getBoardBySlug(boardSlug, currentUser.getId());
 
@@ -120,36 +70,17 @@ public class BoardController {
         return "boards/board";
     }
 
-    @PostMapping("/{publicId}/boards/{boardId}/update")
+    @PostMapping("/boards/{boardId}/update")
     public String updateBoard(
             @PathVariable String publicId,
             @PathVariable Long boardId,
             @ModelAttribute BoardDTO boardDTO,
-            Model model,
             Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken) {
-            return "redirect:/login";
-        }
 
-        String currentEmail = authentication.getName();
-        User currentUser = userRepository.findByEmail(currentEmail)
-                .orElse(null);
+        User currentUser = securityHelper.getAuthenticatedUser(publicId, authentication);
+        if (currentUser == null) {return  "redirect:/login";}
 
-        if (currentUser == null) {
-            return "redirect:/login";
-        }
-
-        if (!currentUser.getPublicId().equals(publicId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No access");
-        }
-
-        try {
-            Board board = boardService.updateBoard(boardId, boardDTO, currentUser.getId());
-            return "redirect:/"+publicId+ "/" + board.getSlug();
-        } catch (AccessDeniedException e) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
-        }
-
+        Board board = boardService.updateBoard(boardId, boardDTO, currentUser.getId());
+        return "redirect:/"+publicId+ "/" + board.getSlug();
     }
 }
